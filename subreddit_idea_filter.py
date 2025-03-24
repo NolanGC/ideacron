@@ -262,6 +262,23 @@ def build_html_report(filtered_posts: List[tuple[Post, str]]) -> str:
     """Build an HTML report of filtered posts."""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
+    # Define a list of colors to cycle through
+    colors = [
+        "#4CAF50",  # Green
+        "#2196F3",  # Blue
+        "#E91E63",  # Pink
+        "#9C27B0",  # Purple
+        "#FF9800",  # Orange
+        "#795548",  # Brown
+        "#607D8B",  # Blue Gray
+        "#00BCD4",  # Cyan
+        "#FFC107",  # Amber
+        "#673AB7",  # Deep Purple
+    ]
+    
+    # Create a mapping of subreddits to colors that's generated on the fly
+    subreddit_to_color = {}
+    
     html = f"""
     <!DOCTYPE html>
     <html>
@@ -288,10 +305,9 @@ def build_html_report(filtered_posts: List[tuple[Post, str]]) -> str:
                 padding: 15px;
                 border-radius: 5px;
                 background-color: #f9f9f9;
-                border-left: 4px solid #ff4500;
+                border-left: 4px solid #ff4500; /* This will be overridden for each post */
             }}
             .subreddit {{
-                color: #0079d3;
                 font-weight: bold;
                 margin-bottom: 5px;
             }}
@@ -331,9 +347,17 @@ def build_html_report(filtered_posts: List[tuple[Post, str]]) -> str:
     """
     
     for post, reason in filtered_posts:
+        # Get or assign a color for this subreddit
+        if post.subreddit not in subreddit_to_color:
+            # Assign the next color in the cycle
+            color_index = len(subreddit_to_color) % len(colors)
+            subreddit_to_color[post.subreddit] = colors[color_index]
+        
+        color = subreddit_to_color[post.subreddit]
+        
         html += f"""
-        <div class="post">
-            <div class="subreddit">r/{post.subreddit}</div>
+        <div class="post" style="border-left: 4px solid {color};">
+            <div class="subreddit" style="color: {color};">r/{post.subreddit}</div>
             <div class="title">
                 <a href="{post.get_full_url()}" target="_blank">
                     {post.title} <span class="age">({post.get_age_str()})</span>
