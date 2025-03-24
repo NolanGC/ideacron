@@ -9,6 +9,8 @@ from datetime import datetime
 import time
 from dotenv import load_dotenv
 from openai import OpenAI
+import praw
+import random
 
 # Load environment variables
 load_dotenv()
@@ -26,6 +28,9 @@ def validate_env_variables():
         "SMTP_USERNAME": "Required for email authentication",
         "SMTP_PASSWORD": "Required for email authentication",
         "SENDER_EMAIL": "Used for email sending (defaults to SMTP_USERNAME)",
+        "REDDIT_CLIENT_ID": "Required for Reddit API authentication",
+        "REDDIT_CLIENT_SECRET": "Required for Reddit API authentication",
+        "REDDIT_USER_AGENT": "Required for Reddit API authentication",
     }
     
     missing_required = []
@@ -89,14 +94,69 @@ class Post:
 
 
 def fetch_new_posts(subreddit: str, limit: int = 25) -> List[Post]:
-    """Fetch new posts from a subreddit."""
-    url = f"https://www.reddit.com/r/{subreddit}.json"
-    headers = {"User-Agent": "python:idea-filter:v1.0 (by /u/yourusername)"}
-    params = {"sort": "new", "limit": limit}
+    """Fetch new posts from a subreddit using authenticated Reddit API."""
     posts = []
     
+    # Try to use Reddit API with authentication first
+    client_id = os.getenv("REDDIT_CLIENT_ID")
+    client_secret = os.getenv("REDDIT_CLIENT_SECRET")
+    user_agent = os.getenv("REDDIT_USER_AGENT", "python:idea-filter:v1.0 (by /u/yourusername)")
+    
+    if client_id and client_secret:
+        try:
+            print(f"Using authenticated Reddit API for r/{subreddit}...")
+            reddit = praw.Reddit(
+                client_id=client_id,
+                client_secret=client_secret,
+                user_agent=user_agent
+            )
+            
+            subreddit_obj = reddit.subreddit(subreddit)
+            for submission in subreddit_obj.new(limit=limit):
+                post = Post(
+                    title=submission.title,
+                    author=str(submission.author),
+                    score=submission.score,
+                    url=submission.url,
+                    created_utc=submission.created_utc,
+                    num_comments=submission.num_comments,
+                    selftext=submission.selftext,
+                    subreddit=submission.subreddit.display_name,
+                    permalink=submission.permalink
+                )
+                posts.append(post)
+            
+            print(f"Successfully fetched {len(posts)} posts from r/{subreddit} using authenticated API")
+            return posts
+            
+        except Exception as e:
+            print(f"Error using authenticated Reddit API: {e}")
+            print("Falling back to anonymous API...")
+    else:
+        print("Reddit API credentials not found, using anonymous API (may be blocked by Reddit)...")
+    
+    # Fall back to anonymous API if authentication fails or credentials not provided
     try:
-        response = requests.get(url, headers=headers, params=params)
+        # Add a random delay to avoid rate limiting
+        time.sleep(1 + random.random() * 2)
+        
+        url = f"https://www.reddit.com/r/{subreddit}/new.json"
+        headers = {
+            "User-Agent": user_agent,
+            # Add more headers to look like a real browser
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+            "Cache-Control": "max-age=0"
+        }
+        params = {"limit": limit}
+        
+        # Try different proxies if available (you might want to add these to .env)
+        proxy = os.getenv("HTTP_PROXY") 
+        proxies = {"http": proxy, "https": proxy} if proxy else None
+        
+        response = requests.get(url, headers=headers, params=params, proxies=proxies, timeout=10)
         response.raise_for_status()  
         data = response.json()
         
@@ -114,6 +174,8 @@ def fetch_new_posts(subreddit: str, limit: int = 25) -> List[Post]:
                 permalink=post_data["permalink"]
             )
             posts.append(post)
+        
+        print(f"Successfully fetched {len(posts)} posts from r/{subreddit} using anonymous API")
     
     except requests.exceptions.RequestException as e:
         print(f"An error occurred fetching from r/{subreddit}: {e}")
