@@ -216,7 +216,7 @@ def filter_posts_with_gemini(posts: List[Post], filter_criteria: str) -> List[tu
         {post_content}
         
         First, answer with just YES or NO. 
-        Then, if YES, provide a one-sentence explanation of why this post matches the criteria.
+        Then, if YES, provide a paragraph explanation of why this post matches the criteria. Include direct quotations when possible, be very concise though.
         Format your answer exactly like this example:
         YES
         This post describes a specific pain point that could be addressed with a SaaS solution.
@@ -416,12 +416,14 @@ def main():
     
     subreddits = [
         "RealEstateTechnology", 
-        "PropTech",
         "HealthTech",
-        "EdTech"
+        "EdTech",
+        "Teachers",
+        "humanresources",
+        "ConstructionTech"
     ]
     
-    filter_criteria = "Does the post include a user posing a question, asking for reccomendation or about the existence of some software that could lay the groundwork for a startup. For example, a user might ask others if they've used AI for generating leads, or if they've had any luck using AI for product photography. The user should NOT be promoting their own existing company. Exclude posts that simply ask a question about an existing technology."
+    filter_criteria = "I'm looking for startup ideas. I'm looking for posts by professionals who are looking for technology to help solve a problem. Evaluate whether or not a post is an example of this. Yes examples: the user is asking if AI can be used to build websites, the user is asking for a tool to use AI to generate mockups. NO examples: the user is promoting or validating their own product, the user is asking about an existing product or api."
     
     # Check for email configuration if we want to send emails
     recipient_email = os.getenv("RECIPIENT_EMAIL")
